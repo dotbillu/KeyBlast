@@ -41,7 +41,7 @@ FINAL_TEST_STATUS=""
 
 function cleanup() {
     print -n "$CLEAR_SCREEN\033[H"
-    print "\n\n${COL_RESET}Restoring terminal... Goodbye!${COL_RESET}\n"
+    print "${COL_RESET}Restoring terminal... Goodbye!${COL_RESET}"
     print -n "${CURSOR_SHOW}"
     stty echo icanon
     exit 0
@@ -747,3 +747,4 @@ while true; do
         fi
     fi
 done
+
