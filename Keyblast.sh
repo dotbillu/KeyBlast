@@ -7,9 +7,21 @@ WORDLIST_FILE_JS=".keyblast_wordlist_js.js"
 WORDLIST_URL_CPP="https://raw.githubusercontent.com/llvm/llvm-project/main/libcxx/include/string"
 WORDLIST_FILE_CPP=".keyblast_wordlist_cpp.cpp"
 WORDS=()
-NUM_WORDS_ENGLISH=30
-NUM_WORDS_CODE=40
 SCORES_FILE=".keyblast_high_scores.csv"
+
+# Word Count Presets
+NUM_WORDS_ENG_1=15
+NUM_WORDS_ENG_2=30
+NUM_WORDS_ENG_3=75
+NUM_WORDS_ENG_4=150
+NUM_WORDS_CODE_1=20
+NUM_WORDS_CODE_2=40
+NUM_WORDS_CODE_3=100
+NUM_WORDS_CODE_4=200
+
+# Default Word Counts
+CURRENT_WORD_COUNT_ENG=$NUM_WORDS_ENG_2
+CURRENT_WORD_COUNT_CODE=$NUM_WORDS_CODE_2
 
 COL_GREEN=$'\033[38;5;151m'
 COL_RED=$'\033[38;5;211m'
@@ -175,9 +187,11 @@ function generate_test_text() {
     FINAL_ACCURACY=""
     FINAL_TEST_STATUS=""
 
-    local num_words=$NUM_WORDS_ENGLISH
-    if [[ "$CURRENT_TEST_MODE" != "English" ]]; then
-        num_words=$NUM_WORDS_CODE
+    local num_words
+    if [[ "$CURRENT_TEST_MODE" == "English" ]]; then
+        num_words=$CURRENT_WORD_COUNT_ENG
+    else
+        num_words=$CURRENT_WORD_COUNT_CODE
     fi
     
     for ((i = 0; i < num_words; i++)); do
@@ -188,18 +202,54 @@ function generate_test_text() {
     TEST_LEN=${#TEST_TEXT}
 }
 
-function render_ui() {
-    print -n "\033[H"
+function print_test_header() {
+    print -n "$CLEAR_SCREEN\033[H"
+    print "${STYLE_BOLD}${COL_TITLE_ACCENT}"
 
-    print "${STYLE_BOLD}Mode: ${COL_PEACH}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}${COL_RESET}"
+    local art="
+              __..--''\`\`---....___   _..._    __
+    /// //_.-'    .-/\";  \`        \`\`<._  \`\`.''_ \`. / // /
+   ///_.-' _..--.'_    \\                    \`( ) ) // //
+   / (_..-' // (< _     ;_..__               ; \`' / ///
+    / // // //  \`-._,_)' // / \`\`--...____..-' /// / //
+    / // / / / / / / / / / / / / // / / / / / / // / / //"
+
+    local art_width=60
+    local term_width=$(tput cols)
+    local padding_len=$(( (term_width - art_width) / 2 ))
+    (( padding_len < 0 )) && padding_len=0
+    local padding=$(printf "%*s" $padding_len "")
+
+    while IFS= read -r line; do
+        print "${padding}${line}"
+    done <<< "$art"
+
     print ""
+    print "${STYLE_NO_BOLD}${COL_RESET}"
+}
 
+
+
+
+function render_ui() {
+    print -n "\033[7;1H"
+# --- top margin added ---
+    local top_margin=4
+    for ((i=0; i<top_margin; i++)); do
+        print ""
+    done
+    # -------------------------
     local current_output=""
     local line_pos=0
     local max_cols=$(tput cols)
+    local margin_len=5
+    local margin_str=$(printf "%*s" $margin_len "")
+    local effective_width=$(( max_cols - (margin_len * 2) ))
     local global_char_index=0
     
     local words=($=TEST_TEXT) 
+
+    current_output+="$margin_str"
 
     for (( w = 1; w <= ${#words[@]}; w++ )); do
         local word=${words[$w]}
@@ -210,8 +260,8 @@ function render_ui() {
             space_needed=0
         fi
 
-        if (( line_pos + word_len + space_needed > max_cols )); then
-            current_output+="${COL_RESET}\n"
+        if (( line_pos + word_len + space_needed > effective_width )); then
+            current_output+="${COL_RESET}\n${margin_str}"
             line_pos=0
         
         elif (( w > 1 )); then
@@ -290,10 +340,10 @@ function render_ui() {
         fi
     fi
 
-    printf "WPM: %s%.0f%s\n" "${STYLE_BOLD}${COL_PEACH}" $wpm "${COL_RESET}${STYLE_NO_BOLD}"
-    printf "Accuracy: %s%.1f%%%s\n" "${STYLE_BOLD}${COL_PEACH}" $accuracy "${COL_RESET}${STYLE_NO_BOLD}"
-    printf "[Correct: %s%d%s | Incorrect: %s%d%s | Total: %d/%d]\n" "${COL_GREEN}" $CORRECT_CHARS "${COL_RESET}" "${COL_RED}" $INCORRECT_CHARS "${COL_RESET}" $CURRENT_POS $TEST_LEN
-    print "\n${COL_UNTYPED}[Tab] Pause | [Enter] Restart | [Esc] Cancel Test${COL_RESET}"
+    printf "%sWPM: %s%.0f%s\n" "$margin_str" "${STYLE_BOLD}${COL_PEACH}" $wpm "${COL_RESET}${STYLE_NO_BOLD}"
+    printf "%sAccuracy: %s%.1f%%%s\n" "$margin_str" "${STYLE_BOLD}${COL_PEACH}" $accuracy "${COL_RESET}${STYLE_NO_BOLD}"
+    printf "%s[Correct: %s%d%s | Incorrect: %s%d%s | Total: %d/%d]\n" "$margin_str" "${COL_GREEN}" $CORRECT_CHARS "${COL_RESET}" "${COL_RED}" $INCORRECT_CHARS "${COL_RESET}" $CURRENT_POS $TEST_LEN
+    print "\n${margin_str}${COL_UNTYPED}[Tab] Pause | [Ctrl+L] Word Count | [Enter] Restart | [Esc] Cancel${COL_RESET}"
 }
 
 function update_stats() {
@@ -321,8 +371,71 @@ function pause_game() {
     local pause_end_time=$(date +%s)
     local pause_duration=$((pause_end_time - pause_start_time))
     START_TIME=$((START_TIME + pause_duration))
-    print -n "$CLEAR_SCREEN\033[H"
+    print_test_header
+}
 
+function show_word_count_menu() {
+    print -n "$CLEAR_SCREEN\033[H"
+    print "${STYLE_BOLD}${COL_PEACH}"
+    figlet -w "$(tput cols)" -c "Word Count"
+    print "${STYLE_NO_BOLD}${COL_RESET}"
+    
+    local margin="    "
+    print "\n\n${margin}Select number of words:\n"
+
+    if [[ "$CURRENT_TEST_MODE" == "English" ]]; then
+        print "${margin}${STYLE_BOLD}[1]${STYLE_NO_BOLD} - 1 Line  (~${NUM_WORDS_ENG_1} words)"
+        print "${margin}${STYLE_BOLD}[2]${STYLE_NO_BOLD} - 2 Lines (~${NUM_WORDS_ENG_2} words)"
+        print "${margin}${STYLE_BOLD}[3]${STYLE_NO_BOLD} - 5 Lines (~${NUM_WORDS_ENG_3} words)"
+        print "${margin}${STYLE_BOLD}[4]${STYLE_NO_BOLD} - 10 Lines (~${NUM_WORDS_ENG_4} words)"
+    else
+        print "${margin}${STYLE_BOLD}[1]${STYLE_NO_BOLD} - 1 Line  (~${NUM_WORDS_CODE_1} words)"
+        print "${margin}${STYLE_BOLD}[2]${STYLE_NO_BOLD} - 2 Lines (~${NUM_WORDS_CODE_2} words)"
+        print "${margin}${STYLE_BOLD}[3]${STYLE_NO_BOLD} - 5 Lines (~${NUM_WORDS_CODE_3} words)"
+        print "${margin}${STYLE_BOLD}[4]${STYLE_NO_BOLD} - 10 Lines (~${NUM_WORDS_CODE_4} words)"
+    fi
+
+    print "\n${margin}${STYLE_BOLD}[b]${STYLE_NO_BOLD} - Back (no change)"
+    
+    IFS= read -rsk1 key
+    
+    case $key in
+        "1")
+            if [[ "$CURRENT_TEST_MODE" == "English" ]]; then
+                CURRENT_WORD_COUNT_ENG=$NUM_WORDS_ENG_1
+            else
+                CURRENT_WORD_COUNT_CODE=$NUM_WORDS_CODE_1
+            fi
+            return 0 # Success
+            ;;
+        "2")
+            if [[ "$CURRENT_TEST_MODE" == "English" ]]; then
+                CURRENT_WORD_COUNT_ENG=$NUM_WORDS_ENG_2
+            else
+                CURRENT_WORD_COUNT_CODE=$NUM_WORDS_CODE_2
+            fi
+            return 0 # Success
+            ;;
+        "3")
+            if [[ "$CURRENT_TEST_MODE" == "English" ]]; then
+                CURRENT_WORD_COUNT_ENG=$NUM_WORDS_ENG_3
+            else
+                CURRENT_WORD_COUNT_CODE=$NUM_WORDS_CODE_3
+            fi
+            return 0 # Success
+            ;;
+        "4")
+            if [[ "$CURRENT_TEST_MODE" == "English" ]]; then
+                CURRENT_WORD_COUNT_ENG=$NUM_WORDS_ENG_4
+            else
+                CURRENT_WORD_COUNT_CODE=$NUM_WORDS_CODE_4
+            fi
+            return 0 # Success
+            ;;
+        *)
+            return 1 # Canceled
+            ;;
+    esac
 }
 
 function run_test() {
@@ -343,7 +456,8 @@ function run_test() {
     load_wordlist "$file_to_load" "$CURRENT_TEST_MODE"
     generate_test_text
     
-    print -n "$CLEAR_SCREEN\033[H"
+    print_test_header
+    
     render_ui
     print "\n\nPress any key to start..."
     IFS= read -rsn1
@@ -366,11 +480,29 @@ function run_test() {
         elif [[ $char == $'\t' ]]; then
             pause_game
             needs_full_render=true
+        
+        elif [[ $char == $'\x0c' ]]; then # Ctrl+L
+            if show_word_count_menu; then
+                # Word count changed, restart test
+                generate_test_text
+                USER_INPUT=""
+                CURRENT_POS=0
+                START_TIME=$(date +%s)
+                print_test_header
+                needs_full_render=true
+            else
+                # Canceled, just redraw
+                print_test_header
+                needs_full_render=true
+            fi
 
         elif [[ "$char" == $'\n' || "$char" == $'\r' ]]; then
             USER_INPUT=""
             CURRENT_POS=0
             START_TIME=$(date +%s)
+            
+            print_test_header
+
             needs_full_render=true
 
         elif [[ $char == $'\x7f' || $char == $'\b' ]]; then
@@ -479,12 +611,12 @@ function show_new_high_score() {
     print "${STYLE_NO_BOLD}${COL_RESET}"
     
     print "\n\n"
-    print "     ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
-    printf "     ${STYLE_BOLD}WPM: ${COL_GREEN}%.0f${STYLE_NO_BOLD}\n" $wpm
-    printf "     ${STYLE_BOLD}Accuracy: ${COL_GREEN}%.1f%%${STYLE_NO_BOLD}\n" $accuracy
+    print "    ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
+    printf "    ${STYLE_BOLD}WPM: ${COL_GREEN}%.0f${STYLE_NO_BOLD}\n" $wpm
+    printf "    ${STYLE_BOLD}Accuracy: ${COL_GREEN}%.1f%%${STYLE_NO_BOLD}\n" $accuracy
     print "\n"
     
-    print -n "     ${COL_PEACH}Enter your name (max 15 chars): ${COL_RESET}"
+    print -n "    ${COL_PEACH}Enter your name (max 15 chars): ${COL_RESET}"
     stty echo icanon
     read -r player_name_raw
     stty -echo -icanon
@@ -496,8 +628,8 @@ function show_new_high_score() {
 
     save_score "$CURRENT_TEST_MODE" "$FINAL_WPM" "$FINAL_ACCURACY" "$timestamp" "$player_name"
     
-    print "\n     ${COL_GREEN}Score saved!${COL_RESET}"
-    print "     Press [H] to see the Leaderboard, or any other key to continue..."
+    print "\n    ${COL_GREEN}Score saved!${COL_RESET}"
+    print "    Press [H] to see the Leaderboard, or any other key to continue..."
     
     IFS= read -rsk1 key
     if [[ "$key" == "h" || "$key" == "H" ]]; then
@@ -519,7 +651,7 @@ function load_scores() {
 }
 function show_leaderboard_for_mode() {
     local mode_to_display=$1
-    local margin="     " # <-- This is the new left margin
+    local margin="    " 
 
     if [[ ! -f "$SCORES_FILE" ]]; then
         print -n "$CLEAR_SCREEN\033[H"
@@ -596,11 +728,11 @@ function show_high_scores() {
         figlet -w "$(tput cols)" -c "Leaderboard"
         print "${STYLE_NO_BOLD}${COL_RESET}"
 
-        print "\n\n     Select Leaderboard Mode:\n"
-        print "     ${STYLE_BOLD}[1]${STYLE_NO_BOLD} -  English"
-        print "     ${STYLE_BOLD}[2]${STYLE_NO_BOLD} -  JavaScript"
-        print "     ${STYLE_BOLD}[3]${STYLE_NO_BOLD} -  C++"
-        print "\n     ${STYLE_BOLD}[b]${STYLE_NO_BOLD} -  Back to Main Menu"
+        print "\n\n    Select Leaderboard Mode:\n"
+        print "    ${STYLE_BOLD}[1]${STYLE_NO_BOLD} -  English"
+        print "    ${STYLE_BOLD}[2]${STYLE_NO_BOLD} -  JavaScript"
+        print "    ${STYLE_BOLD}[3]${STYLE_NO_BOLD} -  C++"
+        print "\n    ${STYLE_BOLD}[b]${STYLE_NO_BOLD} -  Back to Main Menu"
         print "\n\n"
 
         IFS= read -rsk1 key
@@ -628,11 +760,11 @@ function show_language_menu() {
         figlet -w "$(tput cols)" -c "Select Mode"
         print "${STYLE_NO_BOLD}${COL_RESET}"
 
-        print "\n\n     Select Test Mode:\n"
-        print "     ${STYLE_BOLD}[1]${STYLE_NO_BOLD} -  English"
-        print "     ${STYLE_BOLD}[2]${STYLE_NO_BOLD} -  JavaScript"
-        print "     ${STYLE_BOLD}[3]${STYLE_NO_BOLD} -  C++"
-        print "\n     ${STYLE_BOLD}[b]${STYLE_NO_BOLD} -  Back to Main Menu"
+        print "\n\n    Select Test Mode:\n"
+        print "    ${STYLE_BOLD}[1]${STYLE_NO_BOLD} -  English"
+        print "    ${STYLE_BOLD}[2]${STYLE_NO_BOLD} -  JavaScript"
+        print "    ${STYLE_BOLD}[3]${STYLE_NO_BOLD} -  C++"
+        print "\n    ${STYLE_BOLD}[b]${STYLE_NO_BOLD} -  Back to Main Menu"
         print "\n\n"
 
         IFS= read -rsk1 key
@@ -647,12 +779,12 @@ function show_language_menu() {
                 run_test
                 return
                 ;;
-            "3L")
+            "3" | $'\x1b')
                 CURRENT_TEST_MODE="C++"
                 run_test
                 return
                 ;;
-            "b" | $'\x1b')
+            "b")
                 return
                 ;;
         esac
@@ -666,11 +798,11 @@ function show_main_menu_ui() {
     figlet -w "$(tput cols)" -c "KeyBlast"
     print "${STYLE_NO_BOLD}${COL_RESET}"
     
-    print "     Welcome to the command-line typing test!\n\n"
+    print "    Welcome to the command-line typing test!\n\n"
     
-    print "     ${STYLE_BOLD}[Enter]${STYLE_NO_BOLD}  -  Start New Test"
-    print "     ${STYLE_BOLD}[H]${STYLE_NO_BOLD}       -  Show Leaderboard"
-    print "     ${STYLE_BOLD}[Ctrl+C]${STYLE_NO_BOLD} -  Exit"
+    print "    ${STYLE_BOLD}[Enter]${STYLE_NO_BOLD}  -  Start New Test"
+    print "    ${STYLE_BOLD}[H]${STYLE_NO_BOLD}        -  Show Leaderboard"
+    print "    ${STYLE_BOLD}[Ctrl+C]${STYLE_NO_BOLD} -  Exit"
     print "\n\n"
 }
 
@@ -688,9 +820,9 @@ function show_summary_screen() {
         print "${STYLE_NO_BOLD}${COL_RESET}"
 
         print "\n\n"
-        print "     ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
-        print "     ${STYLE_BOLD}WPM: ${COL_GREEN}${FINAL_WPM}${STYLE_NO_BOLD}"
-        print "     ${STYLE_BOLD}Accuracy: ${COL_GREEN}${FINAL_ACCURACY}%%${STYLE_NO_BOLD}"
+        print "    ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
+        print "    ${STYLE_BOLD}WPM: ${COL_GREEN}${FINAL_WPM}${STYLE_NO_BOLD}"
+        print "    ${STYLE_BOLD}Accuracy: ${COL_GREEN}${FINAL_ACCURACY}%%${STYLE_NO_BOLD}"
         
     else
         print "${STYLE_BOLD}${COL_RED}"
@@ -698,12 +830,12 @@ function show_summary_screen() {
         print "${STYLE_NO_BOLD}${COL_RESET}"
 
         print "\n\n"
-        print "     ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
-        print "     ${STYLE_BOLD}WPM: ${COL_RED}${FINAL_WPM}${STYLE_NO_BOLD}"
-        print "     ${STYLE_BOLD}Accuracy: ${COL_RED}${FINAL_ACCURACY}%%${STYLE_NO_BOLD}"
+        print "    ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
+        print "    ${STYLE_BOLD}WPM: ${COL_RED}${FINAL_WPM}${STYLE_NO_BOLD}"
+        print "    ${STYLE_BOLD}Accuracy: ${COL_RED}${FINAL_ACCURACY}%%${STYLE_NO_BOLD}"
     fi
     
-    print "\n\n     Press any key to return to the main menu..."
+    print "\n\n    ${STYLE_BOLD}[Enter]${STYLE_NO_BOLD} - Restart Test | ${STYLE_BOLD}[Any Key]${STYLE_NO_BOLD} - Main Menu..."
 }
 
 function check_terminal_size() {
@@ -733,6 +865,7 @@ download_all_wordlists
 
 trap cleanup SIGINT SIGTERM
 stty -echo -icanon
+echo -n "${CURSOR_SHOW}"
 echo -n "${CURSOR_HIDE}"
 
 while true; do
@@ -740,8 +873,13 @@ while true; do
     
     if [[ -n "$FINAL_WPM" ]]; then
         show_summary_screen
-        IFS= read -rsk1
-        FINAL_WPM=""
+        IFS= read -rsk1 key
+        FINAL_WPM="" # Clear this regardless
+        if [[ "$key" == $'\n' || "$key" == $'\r' ]]; then
+            run_test # Reruns with same CURRENT_TEST_MODE
+            continue # Skip to next loop iteration (which shows summary)
+        fi
+        # If not enter, loop continues normally to main menu
     else
         show_main_menu_ui
         IFS= read -rsk1 key
