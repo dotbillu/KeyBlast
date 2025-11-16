@@ -9,6 +9,7 @@ WORDLIST_FILE_CPP=".keyblast_wordlist_cpp.cpp"
 WORDS=()
 NUM_WORDS_ENGLISH=30
 NUM_WORDS_CODE=40
+SCORES_FILE=".keyblast_high_scores.csv"
 
 COL_GREEN=$'\033[38;5;151m'
 COL_RED=$'\033[38;5;211m'
@@ -32,8 +33,6 @@ CURRENT_POS=0
 START_TIME=0
 CORRECT_CHARS=0
 INCORRECT_CHARS=0
-# TOTAL_PAUSE_TIME is removed
-# IS_PAUSED is removed
 CURRENT_TEST_MODE="English"
 
 FINAL_WPM=""
@@ -41,6 +40,7 @@ FINAL_ACCURACY=""
 FINAL_TEST_STATUS=""
 
 function cleanup() {
+    print -n "$CLEAR_SCREEN\033[H"
     print "\n\n${COL_RESET}Restoring terminal... Goodbye!${COL_RESET}\n"
     print -n "${CURSOR_SHOW}"
     stty echo icanon
@@ -155,8 +155,6 @@ function load_wordlist() {
         file_content=$(echo "$file_content" | tr -s ' ')
         
         WORDS=($=file_content)
-        
-        WORDS=(${WORDS:?//})
     fi
     
     if (( ${#WORDS[@]} == 0 )); then
@@ -173,8 +171,6 @@ function generate_test_text() {
     START_TIME=0
     CORRECT_CHARS=0
     INCORRECT_CHARS=0
-    # TOTAL_PAUSE_TIME reset removed
-    # IS_PAUSED reset removed
     FINAL_WPM=""
     FINAL_ACCURACY=""
     FINAL_TEST_STATUS=""
@@ -275,7 +271,6 @@ function render_ui() {
     local accuracy=0
     local total_typed=$((CORRECT_CHARS + INCORRECT_CHARS))
     
-    # Pause logic removed here, assuming active time is total elapsed time
     if ((START_TIME > 0)); then
         local now=$(date +%s)
         local elapsed_active=$(echo "$now - $START_TIME" | bc)
@@ -298,7 +293,7 @@ function render_ui() {
     printf "WPM: %s%.0f%s\n" "${STYLE_BOLD}${COL_PEACH}" $wpm "${COL_RESET}${STYLE_NO_BOLD}"
     printf "Accuracy: %s%.1f%%%s\n" "${STYLE_BOLD}${COL_PEACH}" $accuracy "${COL_RESET}${STYLE_NO_BOLD}"
     printf "[Correct: %s%d%s | Incorrect: %s%d%s | Total: %d/%d]\n" "${COL_GREEN}" $CORRECT_CHARS "${COL_RESET}" "${COL_RED}" $INCORRECT_CHARS "${COL_RESET}" $CURRENT_POS $TEST_LEN
-    print "\n${COL_UNTYPED}[Esc] Cancel Test${COL_RESET}"
+    print "\n${COL_UNTYPED}[Tab] Pause | [Esc] Cancel Test${COL_RESET}"
 }
 
 function update_stats() {
@@ -311,6 +306,23 @@ function update_stats() {
             INCORRECT_CHARS=$((INCORRECT_CHARS + 1))
         fi
     done
+}
+
+function pause_game() {
+    local pause_start_time=$(date +%s)
+    print -n "$CLEAR_SCREEN\033[H"
+    print "${STYLE_BOLD}${COL_PEACH}"
+    figlet -w "$(tput cols)" -c "PAUSED"
+    print "${STYLE_NO_BOLD}${COL_RESET}"
+    print "\n\nPress any key to resume..."
+    
+    IFS= read -rsk1
+    
+    local pause_end_time=$(date +%s)
+    local pause_duration=$((pause_end_time - pause_start_time))
+    START_TIME=$((START_TIME + pause_duration))
+    print -n "$CLEAR_SCREEN\033[H"
+
 }
 
 function run_test() {
@@ -347,12 +359,14 @@ function run_test() {
         
         local needs_full_render=false
         
-        # Pause logic removed. 'Tab' key is no longer handled.
-        
         if [[ $char == $'\x1b' ]]; then
             FINAL_TEST_STATUS="Canceled"
             break
         
+        elif [[ $char == $'\t' ]]; then
+            pause_game
+            needs_full_render=true
+
         elif [[ $char == $'\x7f' || $char == $'\b' ]]; then
             if ((CURRENT_POS > 0)); then
                 CURRENT_POS=$((CURRENT_POS - 1))
@@ -403,27 +417,218 @@ function run_test() {
 
         FINAL_WPM=$(printf "%.0f" $wpm)
         FINAL_ACCURACY=$(printf "%.1f" $accuracy)
+        
+        local current_best_wpm=$(get_best_wpm "$CURRENT_TEST_MODE")
+        if (( $(echo "$wpm > $current_best_wpm" | bc -l) )); then
+            show_new_high_score $wpm $accuracy $now
+        fi
     else
         FINAL_WPM="N/A"
         FINAL_ACCURACY="N/A"
     fi
 }
 
-function show_language_menu() {
-    print -n "$CLEAR_SCREEN\033[H"
+function get_best_wpm() {
+    local mode=$1
+    local best_wpm=0
     
-    print "${STYLE_BOLD}${COL_TITLE_ACCENT}"
-    figlet -w "$(tput cols)" -c "KeyBlast"
+    if [[ ! -f "$SCORES_FILE" ]]; then
+        print 0
+        return
+    fi
+    
+    best_wpm=$(grep "^$mode," "$SCORES_FILE" | sort -t ',' -nk 2 | tail -1 | cut -d ',' -f 2)
+    
+    if [[ -z "$best_wpm" ]]; then
+        best_wpm=0
+    fi
+    
+    print $best_wpm
+}
+
+function save_score() {
+    local mode=$1
+    local wpm=$2
+    local accuracy=$3
+    local timestamp=$4
+    local name=$5
+    
+    local date_only=$(date -d "@$timestamp" "+%Y-%m-%d")
+    local time_only=$(date -d "@$timestamp" "+%H:%M:%S")
+    
+    local sanitized_name=${name//,/_}
+    
+    print "$mode,$wpm,$accuracy,$timestamp,$date_only,$time_only,$sanitized_name" >> "$SCORES_FILE"
+}
+
+function show_new_high_score() {
+    local wpm=$1
+    local accuracy=$2
+    local timestamp=$3
+    local player_name=""
+    
+    print -n "$CLEAR_SCREEN\033[H"
+    print "${STYLE_BOLD}${COL_PEACH}"
+    figlet -w "$(tput cols)" -c "NEW RECORD!"
     print "${STYLE_NO_BOLD}${COL_RESET}"
-
-    print "\n\n      Select a Test Mode:\n"
-    print "      ${STYLE_BOLD}[1]${STYLE_NO_BOLD} -  English (Alphabet)"
-    print "      ${STYLE_BOLD}[2]${STYLE_NO_BOLD} -  JavaScript (Syntax-focused)"
-    print "      ${STYLE_BOLD}[3]${STYLE_NO_BOLD} -  C++ (Syntax-focused)"
-    print "\n      ${STYLE_BOLD}[b]${STYLE_NO_BOLD} -  Back to Main Menu"
+    
     print "\n\n"
+    print "     ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
+    printf "     ${STYLE_BOLD}WPM: ${COL_GREEN}%.0f${STYLE_NO_BOLD}\n" $wpm
+    printf "     ${STYLE_BOLD}Accuracy: ${COL_GREEN}%.1f%%${STYLE_NO_BOLD}\n" $accuracy
+    print "\n"
+    
+    print -n "     ${COL_PEACH}Enter your name (max 15 chars): ${COL_RESET}"
+    stty echo icanon
+    read -r player_name_raw
+    stty -echo -icanon
+    
+    player_name=${player_name_raw[1,15]}
+    if [[ -z "$player_name" ]]; then
+        player_name="Anon"
+    fi
 
+    save_score "$CURRENT_TEST_MODE" "$FINAL_WPM" "$FINAL_ACCURACY" "$timestamp" "$player_name"
+    
+    print "\n     ${COL_GREEN}Score saved!${COL_RESET}"
+    print "     Press [H] to see the Leaderboard, or any other key to continue..."
+    
+    IFS= read -rsk1 key
+    if [[ "$key" == "h" || "$key" == "H" ]]; then
+        show_high_scores
+    fi
+}
+
+function load_scores() {
+    if [[ ! -f "$SCORES_FILE" ]]; then
+        return 1
+    fi
+    
+    local -a scores=()
+    while IFS=',' read -r mode wpm acc timestamp date_only time_only name; do
+        scores+=("$mode,$wpm,$acc,$timestamp,$date_only,$time_only,$name")
+    done < "$SCORES_FILE"
+    
+    print -r -- "${(@j:$'\n':)scores}"
+}
+function show_leaderboard_for_mode() {
+    local mode_to_display=$1
+    local margin="     " # <-- This is the new left margin
+
+    if [[ ! -f "$SCORES_FILE" ]]; then
+        print -n "$CLEAR_SCREEN\033[H"
+        print "${STYLE_BOLD}${COL_TITLE_ACCENT}"
+        figlet -w "$(tput cols)" -c "Leaderboard"
+        print "${STYLE_NO_BOLD}${COL_RESET}"
+        print "\n${margin}${STYLE_BOLD}Mode: ${COL_PEACH}${mode_to_display}${STYLE_NO_BOLD}${COL_RESET}\n"
+        print "\n\n${margin}${COL_PEACH}No scores recorded for ${mode_to_display} yet!${COL_RESET}"
+        print "\n\n${margin}Press any key to return to the mode selection..."
+        IFS= read -rsk1
+        return
+    fi
+
+    local -a raw_scores=("${(@f)$(load_scores)}")
+    
+    print -n "$CLEAR_SCREEN\033[H"
+    print "${STYLE_BOLD}${COL_TITLE_ACCENT}"
+    figlet -w "$(tput cols)" -c "Leaderboard"
+    print "${STYLE_NO_BOLD}${COL_RESET}"
+    print "\n${margin}${STYLE_BOLD}Mode: ${COL_PEACH}${mode_to_display}${STYLE_NO_BOLD}${COL_RESET}\n"
+
+    local -a mode_scores=()
+    for entry in "${raw_scores[@]}"; do
+        if [[ "$entry" == "$mode_to_display,"* ]]; then
+            mode_scores+=("$entry")
+        fi
+    done
+
+    if (( ${#mode_scores[@]} == 0 )); then
+        print "\n\n${margin}${COL_PEACH}No scores recorded for ${mode_to_display} yet!${COL_RESET}"
+        print "\n\n${margin}Press any key to return to the mode selection..."
+        IFS= read -rsk1
+        return
+    else
+        print "\n\n"
+        printf "${margin}${STYLE_BOLD}%-8s %-10s %-15s %-20s %s${STYLE_NO_BOLD}\n" "RANK" "WPM" "ACCURACY" "NAME" "DATE"
+        print "${margin}------------------------------------------------------------------"
+        
+        local -a sorted_scores=("${(@f)$(print -r -- "${(@j:$'\n':)mode_scores}" | sort -t ',' -k 2nr)}")
+        
+        local rank=1
+        for entry in "${sorted_scores[@]}"; do
+            local parts=(${(@s:,:)entry})
+            local wpm="${parts[2]}"
+            local acc="${parts[3]}%"
+            local date_only="${parts[5]}"
+            local time_only="${parts[6]}"
+            local name="${parts[7]}"
+            
+            local entry_color="${COL_PEACH}"
+            if (( rank == 1 )); then
+                entry_color="${COL_GREEN}"
+            fi
+
+            printf "%s%s%-8s %-10s %-15s %-20s %s%s%s\n" "$margin" "$entry_color" "$rank" "$wpm" "$acc" "$name" "$COL_UNTYPED" "$date_only" "$COL_RESET"
+            
+            local time_padding_str=$(printf '%57s' '') 
+            printf "%s%s%s(%s)%s\n" "$margin" "$COL_UNTYPED" "$time_padding_str" "$time_only" "$COL_RESET"
+
+            rank=$((rank + 1))
+            if (( rank > 10 )); then break; fi
+        done
+        print "${margin}------------------------------------------------------------------"
+    fi
+    
+    print "\n\n${margin}Press any key to return to the mode selection..."
+    IFS= read -rsk1
+}
+
+function show_high_scores() {
     while true; do
+        print -n "$CLEAR_SCREEN\033[H"
+        print "${STYLE_BOLD}${COL_TITLE_ACCENT}"
+        figlet -w "$(tput cols)" -c "Leaderboard"
+        print "${STYLE_NO_BOLD}${COL_RESET}"
+
+        print "\n\n     Select Leaderboard Mode:\n"
+        print "     ${STYLE_BOLD}[1]${STYLE_NO_BOLD} -  English"
+        print "     ${STYLE_BOLD}[2]${STYLE_NO_BOLD} -  JavaScript"
+        print "     ${STYLE_BOLD}[3]${STYLE_NO_BOLD} -  C++"
+        print "\n     ${STYLE_BOLD}[b]${STYLE_NO_BOLD} -  Back to Main Menu"
+        print "\n\n"
+
+        IFS= read -rsk1 key
+        case $key in
+            "1")
+                show_leaderboard_for_mode "English"
+                ;;
+            "2")
+                show_leaderboard_for_mode "JavaScript"
+                ;;
+            "3")
+                show_leaderboard_for_mode "C++"
+                ;;
+            "b" | $'\x1b')
+                return
+                ;;
+        esac
+    done
+}
+
+function show_language_menu() {
+    while true; do
+        print -n "$CLEAR_SCREEN\033[H"
+        print "${STYLE_BOLD}${COL_TITLE_ACCENT}"
+        figlet -w "$(tput cols)" -c "Select Mode"
+        print "${STYLE_NO_BOLD}${COL_RESET}"
+
+        print "\n\n     Select Test Mode:\n"
+        print "     ${STYLE_BOLD}[1]${STYLE_NO_BOLD} -  English"
+        print "     ${STYLE_BOLD}[2]${STYLE_NO_BOLD} -  JavaScript"
+        print "     ${STYLE_BOLD}[3]${STYLE_NO_BOLD} -  C++"
+        print "\n     ${STYLE_BOLD}[b]${STYLE_NO_BOLD} -  Back to Main Menu"
+        print "\n\n"
+
         IFS= read -rsk1 key
         case $key in
             "1")
@@ -448,7 +653,6 @@ function show_language_menu() {
     done
 }
 
-
 function show_main_menu_ui() {
     print -n "$CLEAR_SCREEN\033[H"
     
@@ -456,10 +660,11 @@ function show_main_menu_ui() {
     figlet -w "$(tput cols)" -c "KeyBlast"
     print "${STYLE_NO_BOLD}${COL_RESET}"
     
-    print "      Welcome to the command-line typing test!\n\n"
+    print "     Welcome to the command-line typing test!\n\n"
     
-    print "      ${STYLE_BOLD}[Enter]${STYLE_NO_BOLD}   -  Start New Test"
-    print "      ${STYLE_BOLD}[Ctrl+C]${STYLE_NO_BOLD} -  Exit"
+    print "     ${STYLE_BOLD}[Enter]${STYLE_NO_BOLD}  -  Start New Test"
+    print "     ${STYLE_BOLD}[H]${STYLE_NO_BOLD}       -  Show Leaderboard"
+    print "     ${STYLE_BOLD}[Ctrl+C]${STYLE_NO_BOLD} -  Exit"
     print "\n\n"
 }
 
@@ -467,14 +672,19 @@ function show_summary_screen() {
     print -n "$CLEAR_SCREEN\033[H"
 
     if [[ "$FINAL_TEST_STATUS" == "Completed" ]]; then
+        local current_best_wpm=$(get_best_wpm "$CURRENT_TEST_MODE")
+        if (( $(echo "$FINAL_WPM > $current_best_wpm" | bc -l) )); then
+             return
+        fi
+
         print "${STYLE_BOLD}${COL_GREEN}"
         figlet -w "$(tput cols)" -c "Test Complete"
         print "${STYLE_NO_BOLD}${COL_RESET}"
 
         print "\n\n"
-        print "      ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
-        print "      ${STYLE_BOLD}WPM: ${COL_GREEN}${FINAL_WPM}${STYLE_NO_BOLD}"
-        print "      ${STYLE_BOLD}Accuracy: ${COL_GREEN}${FINAL_ACCURACY}%%${STYLE_NO_BOLD}"
+        print "     ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
+        print "     ${STYLE_BOLD}WPM: ${COL_GREEN}${FINAL_WPM}${STYLE_NO_BOLD}"
+        print "     ${STYLE_BOLD}Accuracy: ${COL_GREEN}${FINAL_ACCURACY}%%${STYLE_NO_BOLD}"
         
     else
         print "${STYLE_BOLD}${COL_RED}"
@@ -482,12 +692,12 @@ function show_summary_screen() {
         print "${STYLE_NO_BOLD}${COL_RESET}"
 
         print "\n\n"
-        print "      ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
-        print "      ${STYLE_BOLD}WPM: ${COL_RED}${FINAL_WPM}${STYLE_NO_BOLD}"
-        print "      ${STYLE_BOLD}Accuracy: ${COL_RED}${FINAL_ACCURACY}%%${STYLE_NO_BOLD}"
+        print "     ${STYLE_BOLD}Mode: ${COL_TITLE_ACCENT}${CURRENT_TEST_MODE}${STYLE_NO_BOLD}"
+        print "     ${STYLE_BOLD}WPM: ${COL_RED}${FINAL_WPM}${STYLE_NO_BOLD}"
+        print "     ${STYLE_BOLD}Accuracy: ${COL_RED}${FINAL_ACCURACY}%%${STYLE_NO_BOLD}"
     fi
     
-    print "\n\n      Press any key to return to the main menu..."
+    print "\n\n     Press any key to return to the main menu..."
 }
 
 function check_terminal_size() {
@@ -504,7 +714,9 @@ function check_terminal_size() {
         print "(Fullscreen is recommended)\n"
         print "Press any key to re-check..."
         
+        stty echo icanon 
         IFS= read -rsk1
+        stty -echo -icanon 
         cols=$(tput cols)
         lines=$(tput lines)
     done
@@ -528,8 +740,10 @@ while true; do
         show_main_menu_ui
         IFS= read -rsk1 key
         
-        if [[ "$key" == $'\n' ]]; then
+        if [[ "$key" == $'\n' || "$key" == $'\r' ]]; then
             show_language_menu
+        elif [[ "$key" == "h" || "$key" == "H" ]]; then 
+            show_high_scores
         fi
     fi
 done
