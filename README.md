@@ -124,7 +124,7 @@ sudo dnf install figlet jetbrains-mono-fonts zsh bc curl
 ```bash
 git clone https://github.com/dotbillu/KeyBlast
 cd KeyBlast
-./install.sh
+sudo ./install.sh
 ```
 
 This installs the `keyblast` command globally.
