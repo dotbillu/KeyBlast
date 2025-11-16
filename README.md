@@ -32,23 +32,90 @@ Your script uses the following tools:
 
 | Tool                         | Why it's needed             |
 | ---------------------------- | --------------------------- |
-| **zsh/bash**                      | Script runtime              |
+| **zsh/bash**                 | Script runtime              |
 | **bc**                       | WPM + accuracy calculations |
 | **curl** or **wget**         | Downloading wordlists       |
 | **figlet**                   | Big text banners            |
 | **tput**                     | Terminal sizing             |
 | **Nerd Fonts (recommended)** | Cleaner icons/spacing       |
 
-**Arch Linux install** (as i use arch)
+Got it. Here’s a clearer split version:
+
+---
+
+## Arch Linux Setup for KeyBlast
+
+### **Mandatory Packages**
+
+These are required for KeyBlast to work properly:
 
 ```bash
-#replace paru with yay acc to ur preference
-paru -S zsh bc curl figlet   #or yay -S zsh bc curl figlet
-paru -S ttf-jetbrains-mono-nerd   #or yay -S nerd-fonts-meslo
-
+paru -S figlet ttf-jetbrains-mono-nerd  # or yay -S figlet nerd-fonts-meslo
 ```
 
-ask gpt for ur distro alternative comands :)
+- `figlet` is used for stylized text in the terminal.
+- Nerd Fonts (`ttf-jetbrains-mono-nerd` or `nerd-fonts-meslo`) are required for proper font rendering in the terminal.
+
+---
+
+### **Optional Packages for Full Experience**
+
+These are not required, but improve usability and aesthetics:
+
+```bash
+paru -S zsh bc curl   # or yay -S zsh bc curl
+```
+
+- `zsh`: optional shell, can replace bash. Set as default with:
+
+```bash
+chsh -s $(which zsh)
+```
+
+- `bc`: used for calculations.
+- `curl`: used to fetch remote resources.
+
+---
+### **Terminal Font Setup (Kitty example)**
+
+1. List available fonts:
+
+```bash
+kitty list-fonts
+```
+
+Pick the Nerd Font you installed.
+
+2. Or manually edit Kitty config:
+
+```bash
+nvim ~/.config/kitty/kitty.conf #or nano ifu are normie
+```
+
+Add or modify:
+
+```bash
+font_family JetBrainsMono Nerd Font 
+#or font_family Meslo LG Nerd Font
+font_size 12  # adjust as desired
+```
+
+---
+
+
+### **Notes for Other Distros**
+(cant say they surely work as i dont use these distros so feel free to ask gpt or gemini)
+- **Ubuntu/Debian**:
+
+```bash
+sudo apt install figlet fonts-jetbrains-mono zsh bc curl
+```
+
+- **Fedora**:
+
+```bash
+sudo dnf install figlet jetbrains-mono-fonts zsh bc curl
+```
 
 ---
 
