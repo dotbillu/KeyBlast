@@ -293,7 +293,7 @@ function render_ui() {
     printf "WPM: %s%.0f%s\n" "${STYLE_BOLD}${COL_PEACH}" $wpm "${COL_RESET}${STYLE_NO_BOLD}"
     printf "Accuracy: %s%.1f%%%s\n" "${STYLE_BOLD}${COL_PEACH}" $accuracy "${COL_RESET}${STYLE_NO_BOLD}"
     printf "[Correct: %s%d%s | Incorrect: %s%d%s | Total: %d/%d]\n" "${COL_GREEN}" $CORRECT_CHARS "${COL_RESET}" "${COL_RED}" $INCORRECT_CHARS "${COL_RESET}" $CURRENT_POS $TEST_LEN
-    print "\n${COL_UNTYPED}[Tab] Pause | [Esc] Cancel Test${COL_RESET}"
+    print "\n${COL_UNTYPED}[Tab] Pause | [R] Restart | [Esc] Cancel Test${COL_RESET}"
 }
 
 function update_stats() {
@@ -365,6 +365,12 @@ function run_test() {
         
         elif [[ $char == $'\t' ]]; then
             pause_game
+            needs_full_render=true
+
+        elif [[ "$char" == "r" || "$char" == "R" ]]; then
+            USER_INPUT=""
+            CURRENT_POS=0
+            START_TIME=$(date +%s)
             needs_full_render=true
 
         elif [[ $char == $'\x7f' || $char == $'\b' ]]; then
@@ -747,4 +753,3 @@ while true; do
         fi
     fi
 done
-

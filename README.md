@@ -5,19 +5,28 @@
 KeyBlast is a lightweight terminal typing trainer supporting English words, JavaScript syntax, and C++ syntax.
 Designed for Linux terminals with real-time WPM, accuracy updates, live highlighting, and a clean UI.
 
-![KeyBlast Preview](./keyblast1.png)
-
+<!-- paste this into your README.md where you want the gallery -->
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;">
+  <img src="./keyblast1.png" alt="KeyBlast 1"
+       style="flex:1 1 220px;min-width:140px;max-height:300px;width:100%;object-fit:cover;border-radius:8px;">
+  <img src="./keyblast2.png" alt="KeyBlast 2"
+       style="flex:1 1 220px;min-width:140px;max-height:300px;width:100%;object-fit:cover;border-radius:8px;">
+  <img src="./keyblast3.png" alt="KeyBlast 3"
+       style="flex:1 1 220px;min-width:140px;max-height:300px;width:100%;object-fit:cover;border-radius:8px;">
+  <img src="./keyblast4.png" alt="KeyBlast 4"
+       style="flex:1 1 220px;min-width:140px;max-height:300px;width:100%;object-fit:cover;border-radius:8px;">
+</div>
 
 ---
 
 ## **Features**
 
-* Real-time WPM + accuracy
-* Per-character correctness feedback
-* English, JavaScript, and C++ wordlists
-* Adaptive UI with automatic terminal resize checks
-* Uses figlet headers + color-styled TUI
-* Pure shell — no Node, Python, or heavy deps
+- Real-time WPM + accuracy
+- Per-character correctness feedback
+- English, JavaScript, and C++ wordlists
+- Adaptive UI with automatic terminal resize checks
+- Uses figlet headers + color-styled TUI
+- Pure shell — no Node, Python, or heavy deps
 
 ---
 
@@ -71,4 +80,3 @@ Use it whenever you’re bored or wanna warm up your fingers.
 ---
 
 **Licensed under the MIT License — free to use, modify, and distribute.**
-
