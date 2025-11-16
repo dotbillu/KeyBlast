@@ -22,11 +22,7 @@ Designed for Linux terminals with real-time WPM, accuracy updates, live highligh
 ## **Features**
 
 - Real-time WPM + accuracy
-- Per-character correctness feedback
 - English, JavaScript, and C++ wordlists
-- Adaptive UI with automatic terminal resize checks
-- Uses figlet headers + color-styled TUI
-- Pure shell — no Node, Python, or heavy deps
 
 ---
 
@@ -36,7 +32,7 @@ Your script uses the following tools:
 
 | Tool                         | Why it's needed             |
 | ---------------------------- | --------------------------- |
-| **zsh**                      | Script runtime              |
+| **zsh/bash**                      | Script runtime              |
 | **bc**                       | WPM + accuracy calculations |
 | **curl** or **wget**         | Downloading wordlists       |
 | **figlet**                   | Big text banners            |
