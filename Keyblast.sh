@@ -53,7 +53,7 @@ FINAL_TEST_STATUS=""
 
 function cleanup() {
     print -n "$CLEAR_SCREEN\033[H"
-    print "${COL_RESET}Restoring terminal... Goodbye!${COL_RESET}"
+    print "${COL_RESET} bye... ʕ·͡ᴥ·ʔ ${COL_RESET}"
     print -n "${CURSOR_SHOW}"
     stty echo icanon
     exit 0
