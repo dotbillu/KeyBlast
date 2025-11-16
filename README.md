@@ -7,7 +7,13 @@ Designed for Linux terminals with real-time WPM, accuracy updates, live highligh
 
 <!-- paste this into your README.md where you want the gallery -->
 <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;">
-  <img src="./keyblast3.png" alt="KeyBlast 4"
+  <img src="./media/keyblast1.png" alt="KeyBlast 1"
+       style="flex:1 1 220px;min-width:140px;max-height:300px;width:100%;object-fit:cover;border-radius:8px;">
+  <img src="./media/keyblast2.png" alt="KeyBlast 2"
+       style="flex:1 1 220px;min-width:140px;max-height:300px;width:100%;object-fit:cover;border-radius:8px;">
+  <img src="./media/keyblast3.png" alt="KeyBlast 3"
+       style="flex:1 1 220px;min-width:140px;max-height:300px;width:100%;object-fit:cover;border-radius:8px;">
+  <img src="./media/keyblast4.png" alt="KeyBlast 4"
        style="flex:1 1 220px;min-width:140px;max-height:300px;width:100%;object-fit:cover;border-radius:8px;">
 </div>
 
