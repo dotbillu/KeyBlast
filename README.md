@@ -28,8 +28,6 @@ Designed for Linux terminals with real-time WPM, accuracy updates, live highligh
 
 ## **Prerequisites**
 
-Your script uses the following tools:
-
 | Tool                         | Why it's needed             |
 | ---------------------------- | --------------------------- |
 | **zsh/bash**                 | Script runtime              |
@@ -39,7 +37,6 @@ Your script uses the following tools:
 | **tput**                     | Terminal sizing             |
 | **Nerd Fonts (recommended)** | Cleaner icons/spacing       |
 
-Got it. Here’s a clearer split version:
 
 ---
 
